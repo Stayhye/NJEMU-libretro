@@ -1,10 +1,23 @@
 SYSTEM   = cps2
+platform = ps2
 DEBUG    = 0
 
-CC = ee-gcc
-AR = ee-ar
+TARGET_NAME = njemu
 
-TARGET  := njemu_$(SYSTEM)_libretro_ps2.a
+ifeq ($(platform), ps2)
+   TARGET := $(TARGET_NAME)_$(SYSTEM)_libretro_$(platform).a
+   CC = mips64r5900el-ps2-elf-gcc
+   CXX = mips64r5900el-ps2-elf-g++
+   AR = mips64r5900el-ps2-elf-ar
+   CFLAGS += -G0 -DPS2 -DABGR1555
+   CXXFLAGS += -G0 -DPS2 -DABGR1555 -D__linux__ -D__mips__ -D_MIPS_ARCH_R5900 -DARCH_LITTLE_ENDIAN -DNO_DLFCN
+   STATIC_LINKING=1
+else
+   TARGET := $(TARGET_NAME)_$(SYSTEM)_libretro_$(platform).a
+   CC = gcc
+   CXX = g++
+   AR = ar
+endif
 
 DEFINES  += -D__LIBRETRO__ -DPS2
 DEFINES  += -DRELEASE=0 -DINLINE='static __inline'
@@ -48,19 +61,23 @@ endif
 
 ifeq ($(DEBUG), 1)
     CFLAGS += -O0 -g
+    CXXFLAGS += -O0 -g
 else
     CFLAGS += -O2
+    CXXFLAGS += -O2
 endif
 
-CFLAGS  += -march=r5900 -mabi=eabi
 CFLAGS  += $(DEFINES)
+CXXFLAGS += $(DEFINES)
 
 CFLAGS += -fstrict-aliasing -falign-functions=32 -falign-loops -falign-labels -falign-jumps -Wall -Wundef -Wpointer-arith -Wbad-function-cast -Wwrite-strings -Wmissing-prototypes -Wsign-compare -DZLIB_CONST
 CFLAGS += -fomit-frame-pointer
 
+CXXFLAGS += -fstrict-aliasing -falign-functions=32 -falign-loops -falign-labels -falign-jumps -Wall -Wundef -Wpointer-arith -Wwrite-strings -Wsign-compare -DZLIB_CONST
+CXXFLAGS += -fomit-frame-pointer
+
 OBJS += zip/zfile.o
 OBJS += common/cache.o common/loadrom.o common/state.o
-# Note: Swap or port these backend files to target ps2/ instead of psp/
 OBJS += ps2/filer.o ps2/ui_text.o ps2/input.o ps2/ticker.o ps2/sound.o ps2/video.o
 OBJS += sound/sndintrf.o
 
@@ -68,7 +85,9 @@ OBJS += emumain.o
 OBJS += libretro.o
 
 INCDIRS += -I.
+ifdef PS2SDK
 INCDIRS += -I$(PS2SDK)/ee/include -I$(PS2SDK)/common/include
+endif
 
 all: $(TARGET)
 
@@ -77,6 +96,9 @@ $(TARGET): $(OBJS)
 
 %.o: %.c
 	$(CC) -c -o $@ $< $(CFLAGS) $(INCDIRS)
+
+%.o: %.cpp
+	$(CXX) -c -o $@ $< $(CXXFLAGS) $(INCDIRS)
 
 clean-objs:
 	rm -f $(OBJS)
